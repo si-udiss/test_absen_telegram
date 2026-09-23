@@ -13,14 +13,7 @@ from telegram.ext import (
 
 from app.config import TELEGRAM_BOT_TOKEN
 from app.database import initialize_database
-from app.bot import (
-    start_command,
-    help_command,
-    logout_command,
-    status_command,
-    get_login_handler,
-    get_absen_handler,
-)
+from app.bot import register_handlers
 
 from cli.admin import (
     create_user,
@@ -43,22 +36,8 @@ def start_bot():
         .build()
     )
 
-    # ConversationHandler harus didaftarkan sebelum command biasa
-    application.add_handler(get_login_handler())
-    application.add_handler(get_absen_handler())
-
-    application.add_handler(
-        CommandHandler("start", start_command)
-    )
-    application.add_handler(
-        CommandHandler("help", help_command)
-    )
-    application.add_handler(
-        CommandHandler("logout", logout_command)
-    )
-    application.add_handler(
-        CommandHandler("status", status_command)
-    )
+    # Daftarkan semua handler (Command, Message/Buttons, Conversation)
+    register_handlers(application)
 
     print(
         "================================="

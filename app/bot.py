@@ -42,6 +42,23 @@ authenticated_users = {}
 
 
 # =============================================
+#  Keyboards
+# =============================================
+
+def get_unauth_keyboard():
+    return ReplyKeyboardMarkup(
+        [["🔑 Login", "❓ Help"]],
+        resize_keyboard=True
+    )
+
+def get_auth_keyboard():
+    return ReplyKeyboardMarkup(
+        [["📍 Absen", "📋 Status"], ["🚪 Logout"]],
+        resize_keyboard=True
+    )
+
+
+# =============================================
 #  /start
 # =============================================
 
@@ -50,11 +67,22 @@ async def start_command(
     context: ContextTypes.DEFAULT_TYPE
 ):
     """Handler untuk /start command."""
-    await update.message.reply_text(
-        "\U0001f44b Selamat datang di "
-        "Telegram Attendance Bot.\n\n"
-        "Silakan gunakan /login untuk masuk."
-    )
+    telegram_user_id = update.effective_user.id
+    
+    if telegram_user_id in authenticated_users:
+        await update.message.reply_text(
+            "\U0001f44b Selamat datang kembali di "
+            "Telegram Attendance Bot.\n\n"
+            "Gunakan menu di bawah ini untuk berinteraksi.",
+            reply_markup=get_auth_keyboard()
+        )
+    else:
+        await update.message.reply_text(
+            "\U0001f44b Selamat datang di "
+            "Telegram Attendance Bot.\n\n"
+            "Silakan gunakan tombol Login untuk masuk.",
+            reply_markup=get_unauth_keyboard()
+        )
 
 
 # =============================================
@@ -90,12 +118,14 @@ async def login_start(
     if telegram_user_id in authenticated_users:
         await update.message.reply_text(
             "\u2139\ufe0f Kamu sudah login.\n\n"
-            "Gunakan /logout untuk keluar terlebih dahulu."
+            "Gunakan Logout untuk keluar terlebih dahulu.",
+            reply_markup=get_auth_keyboard()
         )
         return ConversationHandler.END
 
     await update.message.reply_text(
-        "Masukkan NIM kamu:"
+        "Masukkan NIM kamu:",
+        reply_markup=ReplyKeyboardRemove()
     )
     return WAITING_NIM
 
@@ -140,8 +170,9 @@ async def login_password(
             text=(
                 "\u274c Login gagal.\n\n"
                 "NIM atau password salah.\n"
-                "Gunakan /login untuk mencoba lagi."
-            )
+                "Gunakan Login untuk mencoba lagi."
+            ),
+            reply_markup=get_unauth_keyboard()
         )
         context.user_data.pop("login_nim", None)
         return ConversationHandler.END
@@ -174,8 +205,9 @@ async def login_password(
             "\u2705 Login berhasil.\n\n"
             f"Nama: {user['name']}\n"
             f"NIM: {user['nim']}\n\n"
-            "Gunakan /absen untuk melakukan absensi."
-        )
+            "Gunakan tombol Absen untuk melakukan absensi."
+        ),
+        reply_markup=get_auth_keyboard()
     )
 
     context.user_data.pop("login_nim", None)
@@ -190,7 +222,7 @@ async def login_cancel(
     context.user_data.pop("login_nim", None)
     await update.message.reply_text(
         "Login dibatalkan.",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=get_unauth_keyboard()
     )
     return ConversationHandler.END
 
@@ -208,7 +240,8 @@ async def logout_command(
 
     if telegram_user_id not in authenticated_users:
         await update.message.reply_text(
-            "\u2139\ufe0f Kamu belum login."
+            "\u2139\ufe0f Kamu belum login.",
+            reply_markup=get_unauth_keyboard()
         )
         return
 
@@ -220,7 +253,8 @@ async def logout_command(
     )
 
     await update.message.reply_text(
-        "\u2705 Kamu telah logout."
+        "\u2705 Kamu telah logout.",
+        reply_markup=get_unauth_keyboard()
     )
 
 
@@ -239,7 +273,8 @@ async def absen_start(
     if telegram_user_id not in authenticated_users:
         await update.message.reply_text(
             "\u274c Kamu harus login terlebih dahulu.\n\n"
-            "Gunakan /login."
+            "Gunakan tombol Login.",
+            reply_markup=get_unauth_keyboard()
         )
         return ConversationHandler.END
 
@@ -251,7 +286,8 @@ async def absen_start(
         await update.message.reply_text(
             "\u26a0\ufe0f Kamu sudah melakukan "
             "absensi hari ini.\n\n"
-            f"Waktu: {existing['check_in']}"
+            f"Waktu: {existing['check_in']}",
+            reply_markup=get_auth_keyboard()
         )
         return ConversationHandler.END
 
@@ -260,8 +296,11 @@ async def absen_start(
         text="\U0001f4cd Kirim Lokasi",
         request_location=True
     )
+    # Tambahkan tombol batal
+    cancel_button = KeyboardButton(text="❌ Batal Absen")
+    
     reply_markup = ReplyKeyboardMarkup(
-        [[location_button]],
+        [[location_button], [cancel_button]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
@@ -269,7 +308,7 @@ async def absen_start(
     await update.message.reply_text(
         "\U0001f4cd VERIFIKASI LOKASI\n\n"
         "Silakan bagikan lokasi kamu menggunakan "
-        'fitur "Send Location" Telegram.\n\n'
+        'tombol "Kirim Lokasi" di bawah ini.\n\n'
         "Lokasi harus berada dalam radius "
         f"{int(CAMPUS_RADIUS)} meter dari kampus.",
         reply_markup=reply_markup
@@ -289,8 +328,8 @@ async def absen_location(
     if user_id is None:
         await update.message.reply_text(
             "\u274c Session tidak valid. "
-            "Silakan /login kembali.",
-            reply_markup=ReplyKeyboardRemove()
+            "Silakan login kembali.",
+            reply_markup=get_unauth_keyboard()
         )
         return ConversationHandler.END
 
@@ -323,7 +362,7 @@ async def absen_location(
             f"Jarak: {distance:.2f} meter\n"
             f"Radius maksimum: {int(CAMPUS_RADIUS)}"
             " meter",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=get_auth_keyboard()
         )
         return ConversationHandler.END
 
@@ -339,7 +378,7 @@ async def absen_location(
             "\u26a0\ufe0f Kamu sudah melakukan "
             "absensi hari ini.\n\n"
             f"Waktu: {existing['check_in'] if existing else '-'}",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=get_auth_keyboard()
         )
         return ConversationHandler.END
 
@@ -357,7 +396,7 @@ async def absen_location(
         "\u2705 Absensi berhasil dicatat!\n\n"
         f"Waktu: {result['check_in']}\n"
         f"Status: {result['status']}",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=get_auth_keyboard()
     )
 
     return ConversationHandler.END
@@ -368,9 +407,13 @@ async def absen_cancel(
     context: ContextTypes.DEFAULT_TYPE
 ):
     """Batalkan proses absensi."""
+    # Check session to return proper keyboard
+    telegram_user_id = update.effective_user.id
+    keyboard = get_auth_keyboard() if telegram_user_id in authenticated_users else get_unauth_keyboard()
+    
     await update.message.reply_text(
         "Absensi dibatalkan.",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=keyboard
     )
     return ConversationHandler.END
 
@@ -388,7 +431,8 @@ async def status_command(
 
     if telegram_user_id not in authenticated_users:
         await update.message.reply_text(
-            "\u274c Kamu belum login."
+            "\u274c Kamu belum login.",
+            reply_markup=get_unauth_keyboard()
         )
         return
 
@@ -404,7 +448,8 @@ async def status_command(
 
     if not user:
         await update.message.reply_text(
-            "\u274c Data user tidak ditemukan."
+            "\u274c Data user tidak ditemukan.",
+            reply_markup=get_unauth_keyboard()
         )
         return
 
@@ -419,7 +464,8 @@ async def status_command(
             "Status:\n"
             "\u2705 Sudah absen\n\n"
             f"Waktu: {attendance['check_in']}\n"
-            f"Jarak: {attendance['distance']} meter"
+            f"Jarak: {attendance['distance']} meter",
+            reply_markup=get_auth_keyboard()
         )
     else:
         await update.message.reply_text(
@@ -427,55 +473,64 @@ async def status_command(
             f"Nama: {user['name']}\n"
             f"NIM: {user['nim']}\n\n"
             "Status hari ini:\n"
-            "\u274c Belum absen"
+            "\u274c Belum absen",
+            reply_markup=get_auth_keyboard()
         )
 
 
 # =============================================
-#  Handler factories
+#  Handler factories & Registration
 # =============================================
 
-def get_login_handler():
-    """Buat ConversationHandler untuk flow login."""
-    return ConversationHandler(
+def register_handlers(application):
+    """Daftarkan semua handler bot dengan dukungan Regex Keyboard."""
+    
+    # 1. Login Conversation
+    login_conv = ConversationHandler(
         entry_points=[
-            CommandHandler("login", login_start)
+            CommandHandler("login", login_start),
+            MessageHandler(filters.Regex(r"^(🔑 Login|/login)$"), login_start)
         ],
         states={
             WAITING_NIM: [
-                MessageHandler(
-                    filters.TEXT & ~filters.COMMAND,
-                    login_nim
-                )
+                MessageHandler(filters.TEXT & ~filters.COMMAND, login_nim)
             ],
             WAITING_PASSWORD: [
-                MessageHandler(
-                    filters.TEXT & ~filters.COMMAND,
-                    login_password
-                )
+                MessageHandler(filters.TEXT & ~filters.COMMAND, login_password)
             ],
         },
         fallbacks=[
             CommandHandler("cancel", login_cancel)
         ],
     )
+    application.add_handler(login_conv)
 
-
-def get_absen_handler():
-    """Buat ConversationHandler untuk flow absensi."""
-    return ConversationHandler(
+    # 2. Absen Conversation
+    absen_conv = ConversationHandler(
         entry_points=[
-            CommandHandler("absen", absen_start)
+            CommandHandler("absen", absen_start),
+            MessageHandler(filters.Regex(r"^(📍 Absen|/absen)$"), absen_start)
         ],
         states={
             WAITING_LOCATION: [
-                MessageHandler(
-                    filters.LOCATION,
-                    absen_location
-                )
+                MessageHandler(filters.LOCATION, absen_location)
             ],
         },
         fallbacks=[
-            CommandHandler("cancel", absen_cancel)
+            CommandHandler("cancel", absen_cancel),
+            MessageHandler(filters.Regex(r"^(❌ Batal Absen)$"), absen_cancel)
         ],
     )
+    application.add_handler(absen_conv)
+
+    # 3. Standard Commands & Buttons
+    application.add_handler(CommandHandler("start", start_command))
+    
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(MessageHandler(filters.Regex(r"^(❓ Help)$"), help_command))
+
+    application.add_handler(CommandHandler("logout", logout_command))
+    application.add_handler(MessageHandler(filters.Regex(r"^(🚪 Logout)$"), logout_command))
+
+    application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(MessageHandler(filters.Regex(r"^(📋 Status)$"), status_command))
