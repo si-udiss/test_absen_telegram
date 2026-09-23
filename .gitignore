@@ -1,1 +1,9 @@
+.vscode
+.venv
+.idea
+
+__pycache__/
+*.pyc
+
+data/*.db
 .env
