@@ -1,28 +1,42 @@
 import sqlite3
-from pathlib import Path
 
-
-DATABASE_PATH = Path("data/attendance.db")
+from app.config import DATABASE_PATH
 
 
 def get_connection():
+    """Buat koneksi ke SQLite database.
+
+    Otomatis membuat direktori parent jika belum ada.
+    Foreign key constraint diaktifkan.
+    """
     DATABASE_PATH.parent.mkdir(
         parents=True,
         exist_ok=True
     )
 
-    connection = sqlite3.connect(
-        DATABASE_PATH
-    )
-
+    connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
+
+    # Aktifkan foreign key constraint
+    connection.execute("PRAGMA foreign_keys = ON")
 
     return connection
 
 
 def initialize_database():
-    connection = get_connection()
+    """Inisialisasi database dan buat tabel jika belum ada.
 
+    Tabel:
+    - users: data mahasiswa (NIM, nama, password hash, telegram ID)
+    - attendance: data absensi (tanggal, waktu, lokasi, jarak, status)
+
+    Constraint:
+    - users.nim UNIQUE
+    - users.telegram_user_id UNIQUE (jika sudah terhubung)
+    - attendance (user_id, attendance_date) UNIQUE — cegah duplikat absensi
+    - attendance.user_id → users.id (foreign key)
+    """
+    connection = get_connection()
     cursor = connection.cursor()
 
     cursor.execute("""
@@ -32,7 +46,8 @@ def initialize_database():
             name TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             telegram_user_id INTEGER UNIQUE,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         )
     """)
 
@@ -49,7 +64,9 @@ def initialize_database():
             created_at TEXT NOT NULL,
 
             FOREIGN KEY (user_id)
-                REFERENCES users(id)
+                REFERENCES users(id),
+
+            UNIQUE (user_id, attendance_date)
         )
     """)
 

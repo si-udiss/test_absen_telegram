@@ -17,16 +17,12 @@ def calculate_distance(
     longitude2: float
 ) -> float:
 
+    # Calculate deltas first using degrees, then convert to radians
+    delta_latitude = radians(latitude2 - latitude1)
+    delta_longitude = radians(longitude2 - longitude1)
+
     latitude1 = radians(latitude1)
     latitude2 = radians(latitude2)
-
-    delta_latitude = radians(
-        latitude2 - latitude1
-    )
-
-    delta_longitude = radians(
-        longitude2 - longitude1
-    )
 
     a = (
         sin(delta_latitude / 2) ** 2
